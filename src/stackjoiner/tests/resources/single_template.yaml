@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description:  simple template
+
+Parameters:
+  bucketName:
+    Description: bucket name
+    Type: String
+
+  bucketName2:
+    Description: bucket name
+    Type: String
+
+Resources:
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref bucketName2
+
+Outputs:
+  S3Bucket:
+    Description: S3Bucket
+    Value: !Ref S3Bucket

@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description:  simple template
+
+Parameters:
+  bucketName:
+    Description: bucket name
+    Type: String
+
+
+
+Resources:
+  S3Bucket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: 'first bucket'
+
+  SecondBucket:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: ./single_template.yaml
+      TimeoutInMinutes: 15
+      Parameters:
+        EnvironmentName: !Ref bucketName
+        bucketName2: !Ref bucketName
+
+Outputs:
+  S3Bucket:
+    Description: S3Bucket
+    Value: !Ref S3Bucket
+  SecondBucket:
+    Description: "VPC"
+    Value: !GetAtt SecondBucket.Outputs.S3Bucket
