@@ -37,7 +37,7 @@ class StackJoiner:
         self.resources:Dict = {}
         self.description = {}
         self.outputs:Dict = {}
-        self.children:Dict = {}
+        self.children:Dict[str,StackJoiner] = {}
         # self.ref_list: Dict[RefTag] = {}
         # self.get_att_list: Dict[GetAttTag] = {}
         self.tagger_elements: Dict[str, List[CFTag]] = {}
@@ -117,6 +117,68 @@ class StackJoiner:
                 new_resources_map[p_id] = child_id + p_id
         return new_resources_map
 
+    def remap_child_resource(self, child,child_id):
+        new_resources_map = {}
+        for r in child.resources:
+            if r not in self.resources:
+                self.resources[child_id + r] = child.resources[r]
+                new_resources_map[r] = child_id + r
+            else:
+                print('element already exists')
+                # rename elements for children if they already exist
+                self.resources[child_id + r] = child.resources[r]
+                new_resources_map[r] = child_id + r
+        return new_resources_map
+
+    def add_child_dependencies(self, child, child_id,resources_map):
+        for resource_id, resource in self.resources.items():
+            if 'DependsOn' in resource:
+                dependencies = resource['DependsOn']
+
+                dependencies_list = []
+                if isinstance(dependencies, str):
+                    dependencies_list.append(dependencies)
+                elif isinstance(dependencies, list):
+                    for d in dependencies:
+                        dependencies_list.append(d)
+                if child_id in dependencies_list:
+                    resource['DependsOn'] = []
+                    full_dependencies = []
+                    for cr in child.resources:
+                        full_dependencies.append(cr)
+                    resource['DependsOn'] = [resources_map[d] for d in full_dependencies]
+                    dependencies_list.remove(child_id)
+                    resource['DependsOn'].extend(dependencies_list)
+    def remap_dependencies(self, resource_map):
+        for resource_id, resource in self.resources.items():
+            if 'DependsOn' in resource:
+                dependencies = resource['DependsOn']
+                resource['DependsOn'] = []
+                if isinstance(dependencies, str):
+                    resource['DependsOn'].append(resource_map[dependencies])
+                elif isinstance(dependencies, list):
+                    for d in dependencies:
+                        resource['DependsOn'].append(resource_map[d])
+
+    def remap_resource(self, resource_map):
+        new_d = self.tagger_elements.copy()
+        for tag in new_d:
+            if tag in resource_map:
+                self.replace_cf_tag(tag, resource_map[tag])
+            else:
+                tag_str = new_d[tag][0].tag
+                if tag_str == "!GetAtt":
+                    values = ast.literal_eval(tag)
+                    values[0] = resource_map[values[0]]
+                    self.replace_cf_tag(tag, CFTag(tag_str, values))
+                elif tag_str == "!Sub":
+                    keys = [i[1] for i in Formatter().parse(tag) if i[1] is not None]
+                    keys = [k for k in keys if k in resource_map]
+                    if len(keys) > 0:
+                        aux = tag
+                        for k in keys:
+                            aux = aux.replace(f'${{{k}}}', f'${{{resource_map[k]}}}')
+                        self.replace_cf_tag(tag, aux)
     def merge(self):
         stacks_to_delete = []
         for child_id, child in self.children.items():
@@ -126,55 +188,12 @@ class StackJoiner:
             new_resources_map = {}
 
             new_resources_map = self.parse_child_parameter(child,child_id,new_parameters)
-            for p_id, p in child.parameters.items():
-                # Check if we are passing a value for the parameter
-                if p_id in new_parameters:
-                    new_p = new_parameters[p_id]
-                    if isinstance(new_p,CFTag):
-                        child.replace_cf_tag(p_id, new_parameters[p_id])
-                        new_resources_map[p_id] = new_p.value
-                    else:
-                        p['Default'] = new_p
-                        self.parameters[child_id + p_id] = p
-                        new_resources_map[p_id] = child_id + p_id
-                else:
-                    self.parameters[child_id + p_id] = p
-                    new_resources_map[p_id] = child_id + p_id
-
-
-            for r in child.resources:
-                if r not in self.resources:
-                    self.resources[child_id + r] = child.resources[r]
-                    new_resources_map[r] = child_id + r
-                else:
-                    print('element already exists')
-                    # rename elements for children if they already exist
-                    self.resources[child_id + r] = child.resources[r]
-                    new_resources_map[r] = child_id + r
-
-                # children.replace_cf_tag(r,new_resources_map[r])
+            new_resources_map.update(self.remap_child_resource(child,child_id))
 
             stacks_to_delete.append(child_id)
 
-            new_d = child.tagger_elements.copy()
-            for tag in new_d:
-                if tag in new_resources_map:
-                    child.replace_cf_tag(tag, new_resources_map[tag])
-                    # children.tagger_elements[tag].value = new_resources_map[tag]
-                else:
-                    tag_str = new_d[tag][0].tag
-                    if tag_str == "!GetAtt":
-                        values = ast.literal_eval(tag)
-                        values[0] = new_resources_map[values[0]]
-                        child.replace_cf_tag(tag, CFTag(tag_str,values))
-                    elif tag_str == "!Sub":
-                        keys = [i[1] for i in Formatter().parse(tag) if i[1] is not None]
-                        keys = [k for k in keys if k in new_resources_map]
-                        if len(keys) > 0:
-                            aux = tag
-                            for k in keys:
-                                aux = aux.replace(f'${{{k}}}',f'${{{new_resources_map[k]}}}')
-                            child.replace_cf_tag(tag, aux)
+            child.remap_resource(new_resources_map)
+
 
             # Check outputs
             new_d = self.tagger_elements.copy()
@@ -190,37 +209,10 @@ class StackJoiner:
                     new_output_id = new_resources_map[output_id]
                     child.replace_cf_tag(g, new_output_id)
 
-            # resolve children dependencies:
-            for resource_id,resource in child.resources.items():
-                if 'DependsOn' in resource:
-                    dependencies = resource['DependsOn']
-                    resource['DependsOn'] = []
+            # remap children dependencies:
+            child.remap_dependencies(new_resources_map)
+            # resolve stack dependencies
+            self.add_child_dependencies(child,child_id,new_resources_map)
 
-                    if isinstance(dependencies,str):
-                        resource['DependsOn'].append(new_resources_map[dependencies])
-                    elif isinstance(dependencies,list):
-                        for d in dependencies:
-                            resource['DependsOn'].append(new_resources_map[d])
-
-            # resolve stack dependencies:
-            for resource_id,resource in self.resources.items():
-                if 'DependsOn' in resource:
-                    dependencies = resource['DependsOn']
-
-                    dependencies_list = []
-                    if isinstance(dependencies,str):
-                        dependencies_list.append(dependencies)
-                    elif isinstance(dependencies,list):
-                        for d in dependencies:
-                            dependencies_list.append(d)
-                    if child_id in dependencies_list:
-                        resource['DependsOn'] = []
-                        full_dependencies = []
-                        for cr in child.resources:
-                            full_dependencies.append(cr)
-                        resource['DependsOn'] = [new_resources_map[d] for d in full_dependencies]
-                        dependencies_list.remove(child_id)
-                        resource['DependsOn'].extend(dependencies_list)
-                        print(resource)
         for s in stacks_to_delete:
             del self.resources[s]
