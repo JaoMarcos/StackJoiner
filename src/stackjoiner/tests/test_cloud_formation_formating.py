@@ -158,3 +158,21 @@ class TestCloudFormationTemplate(TestCase):
                 """
         data = YamlLoader.load(text2)
         assert YamlLoader.dump(data["k3"]) == YamlLoader.dump(data["k1"])
+
+    def test_select(self):
+        """
+        Test reading the !Select function
+        :return:
+        """
+        text = """
+            PublicSubnet1:
+                Type: AWS::EC2::Subnet
+                Properties:
+                    VpcId: !Ref VPC
+                    AvailabilityZone: !Select [ 0, !GetAZs '' ]
+           """
+        data = YamlLoader.load(text)
+        Properties = data['PublicSubnet1']['Properties']
+
+        data_str = YamlLoader.dump(data)
+        assert 'Fn::GetAZs' in data_str

@@ -17,9 +17,7 @@ class CFTag(yaml.YAMLObject):
         return f"Fn::{self.tag[1:]}"
 
     def __getstate__(self):
-        if self.tag == "!Ref":
-            return {f"{self.tag[1:]}": self.value}
-        return {f"Fn::{self.tag[1:]}": self.value}
+        return {f"{self.get_tag()}": self.value}
 
     def __repr__(self):
         return f"{self.tag[:]} {self.value}"
@@ -61,7 +59,7 @@ class CFTag(yaml.YAMLObject):
             elements.append(tag)
             cls.tagger_elements[str(value)] = elements
 
-        elif node.tag == "!Join":
+        elif node.tag in ["!Join","!Select"]:
             v = cls.get_data(node.value)
             tag = CFTag(node.tag, v)
 
@@ -92,8 +90,10 @@ class CFTag(yaml.YAMLObject):
         if data.tag == "!Select":
             new_v = []
             for v in data.value:
-                if v.tag.startswith("!"):
-                    new_v.append({v.tag[1:]: v.value})
+                if not hasattr(v,'tag'):
+                    new_v.append(v)
+                elif v.tag.startswith("!"):
+                    new_v.append(v.__getstate__())
                 else:
                     new_v.append(v.value)
 

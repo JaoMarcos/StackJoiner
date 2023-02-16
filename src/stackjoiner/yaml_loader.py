@@ -10,6 +10,7 @@ yaml.SafeLoader.add_constructor("!GetAtt", CFTag.from_yaml)
 yaml.SafeLoader.add_constructor("!Join", CFTag.from_yaml)
 yaml.SafeLoader.add_constructor("!Sub", CFTag.from_yaml)
 yaml.SafeLoader.add_constructor("!Select", CFTag.from_yaml)
+yaml.SafeLoader.add_constructor("!GetAZs", CFTag.from_yaml)
 yaml.default_flow_style = None
 # Required for safe_dump
 yaml.SafeDumper.add_multi_representer(CFTag, CFTag.to_yaml)
@@ -29,6 +30,8 @@ class YamlLoader:
         "Ref": lambda x: ("!Ref", x),
         "Fn::GetAtt": lambda x: ("!GetAtt", load_get_att(x)),
         "Fn::Join": lambda x: ("!Join", load_json(x)),
+        "Fn::GetAZs": lambda x: ("!GetAZs", x),
+        "!GetAZs": lambda x: ("!GetAZs", x),
     }
 
     @classmethod
@@ -58,8 +61,12 @@ class YamlLoader:
                 for i, _ in enumerate(data[k]):
                     if isinstance(data[k][i], dict):
                         data[k][i] = cls.replace_keys(data[k][i])
-            elif isinstance(data[k], CFTag) and data[k].tag == "!Join":
-                for i, v in enumerate(data[k].value[1]):
-                    data[k].value[1][i] = cls.replace_keys(data[k].value[1][i])
+            elif isinstance(data[k], CFTag):
+                if data[k].tag == "!Join":
+                    for i, v in enumerate(data[k].value[1]):
+                        data[k].value[1][i] = cls.replace_keys(data[k].value[1][i])
+                elif data[k].tag == "!Select":
+                    data[k].value[1] = CFTag.from_yaml(None, ScalarNode(tag=data[k].value[1].tag, value=data[k].value[1].value))
+
 
         return data
