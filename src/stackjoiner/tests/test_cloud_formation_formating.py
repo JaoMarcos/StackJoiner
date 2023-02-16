@@ -1,14 +1,10 @@
-import os
-from pathlib import Path
 from unittest import TestCase
-import yaml
 
-from src.stackjoiner.stackjoiner import StackJoiner, CFTag
-from stackjoiner.yaml_loader import YamlLoader
+from src.stackjoiner.stackjoiner import CFTag
+from src.stackjoiner.yaml_loader import YamlLoader
 
 
 class TestCloudFormationTemplate(TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.text_ref = """
@@ -30,35 +26,46 @@ class TestCloudFormationTemplate(TestCase):
                         """
 
     def test_ref(self):
+        """
+        Test reading the !Red function
+        :return:
+        """
         data = YamlLoader.load(self.text_ref)
-        assert 'k1' in data
-        assert 'k1' in data
-        assert isinstance(data['k1'], CFTag)
-        assert isinstance(data['k2'], CFTag)
+        assert "k1" in data
+        assert "k1" in data
+        assert isinstance(data["k1"], CFTag)
+        assert isinstance(data["k2"], CFTag)
 
-        assert data['k1'].tag == '!Ref'
-        assert data['k1'].value == 'v1'
+        assert data["k1"].tag == "!Ref"
+        assert data["k1"].value == "v1"
 
-        assert data['k2'].tag == '!Ref'
-        assert data['k2'].value == 'v2'
+        assert data["k2"].tag == "!Ref"
+        assert data["k2"].value == "v2"
 
     def test_get_att(self):
+        """
+        Test reading the !GetAtt function
+        :return:
+        """
         data = YamlLoader.load(self.text_get_att)
-        assert 'k1' in data
-        assert 'k1' in data
-        assert isinstance(data['k1'], CFTag)
-        assert isinstance(data['k2'], CFTag)
+        assert "k1" in data
+        assert "k1" in data
+        assert isinstance(data["k1"], CFTag)
+        assert isinstance(data["k2"], CFTag)
 
-        assert data['k1'].tag == '!GetAtt'
-        assert data['k1'].value == ['v1', 'a1']
+        assert data["k1"].tag == "!GetAtt"
+        assert data["k1"].value == ["v1", "a1"]
 
-        assert data['k2'].tag == '!GetAtt'
-        assert data['k2'].value == ['v1', 'a1']
+        assert data["k2"].tag == "!GetAtt"
+        assert data["k2"].value == ["v1", "a1"]
 
-        assert YamlLoader.dump(data['k2']) == YamlLoader.dump(data['k1'])
+        assert YamlLoader.dump(data["k2"]) == YamlLoader.dump(data["k1"])
 
     def test_get_att2(self):
-
+        """
+        Test reading the !GetAtt function on outputs
+        :return:
+        """
         text = """
         Outputs:
           VPC:
@@ -67,10 +74,14 @@ class TestCloudFormationTemplate(TestCase):
         data = YamlLoader.load(text)
         print(data)
         data_str = YamlLoader.dump(data)
-        assert '- VPCStack' in data_str
+        assert "- VPCStack" in data_str
 
     def test_list(self):
-        text ="""
+        """
+        Test randle multiple functions on a list
+        :return:
+        """
+        text = """
         k1: 
             - Ref: v1
             - !Ref v2
@@ -79,12 +90,16 @@ class TestCloudFormationTemplate(TestCase):
             
         """
         data = YamlLoader.load(text)
-        assert 'k1' in data
+        assert "k1" in data
 
-        for i in data['k1']:
+        for i in data["k1"]:
             assert isinstance(i, CFTag)
 
     def test_join1(self):
+        """
+        Test reading the !Join function
+        :return:
+        """
         text = """
            k3: !Join 
                    - ":"
@@ -95,10 +110,13 @@ class TestCloudFormationTemplate(TestCase):
         data = YamlLoader.load(text)
         print(data)
         data_str = YamlLoader.dump(data)
-        assert 'Fn::GetAtt' in data_str
-
+        assert "Fn::GetAtt" in data_str
 
     def test_join(self):
+        """
+        Test reading the !Join function
+        :return:
+        """
         text = """
         k3: !Join 
             - ":"
@@ -123,8 +141,8 @@ class TestCloudFormationTemplate(TestCase):
         """
         data = YamlLoader.load(text)
 
-        assert YamlLoader.dump(data['k2']) == YamlLoader.dump(data['k1'])
-        assert YamlLoader.dump(data['k3']) == YamlLoader.dump(data['k1'])
+        assert YamlLoader.dump(data["k2"]) == YamlLoader.dump(data["k1"])
+        assert YamlLoader.dump(data["k3"]) == YamlLoader.dump(data["k1"])
 
         text2 = """
                 k1: 
@@ -139,6 +157,4 @@ class TestCloudFormationTemplate(TestCase):
                                 - d
                 """
         data = YamlLoader.load(text2)
-        # assert YamlLoader.dump(data['k2']) == YamlLoader.dump(data['k1'])
-        assert YamlLoader.dump(data['k3']) == YamlLoader.dump(data['k1'])
-
+        assert YamlLoader.dump(data["k3"]) == YamlLoader.dump(data["k1"])

@@ -3,7 +3,6 @@ requires = ["flit_core >=3.2,<4"]
 build-backend = "flit_core.buildapi"
 
 
-
 [project]
 name = "stackjoiner"
 authors = [{name = "João Marcos", email = "jmarcosdo@gmail.com"}]
@@ -11,6 +10,25 @@ readme = "README.md"
 license = {file = "LICENSE"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dynamic = ["version", "description"]
+dependencies = [
+    "PyYAML==6.0",
+]
 
 [project.scripts]
-stackjoiner = "src.main:main"
+stackjoiner = "stackjoiner.cli:main"
+
+[tool.flit.module]
+name = "stackjoiner"
+
+
+[tool.pylint]
+max-line-length = 100
+disable = [
+    "C0103", # (invalid-name)
+    "C0114", # (missing-module-docstring)
+    "C0115", # (missing-class-docstring)
+    "C0116", # (missing-function-docstring)
+    "R0903", # (too-few-public-methods)
+    "R0913", # (too-many-arguments)
+    "W0105", # (pointless-string-statement)
+]
