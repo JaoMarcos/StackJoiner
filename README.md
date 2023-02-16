@@ -12,7 +12,7 @@ This package solves this problem, by merging all the stacks in one single file, 
 ## Installation
 
 ```sh
-pip install podsearch
+pip install stackjoiner
 ```
 
 ## Run

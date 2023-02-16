@@ -14,6 +14,9 @@ dependencies = [
     "PyYAML==6.0",
 ]
 
+[project.urls]
+Home = "https://github.com/JaoMarcos/StackJoiner"
+
 [project.scripts]
 stackjoiner = "stackjoiner.cli:main"
 
